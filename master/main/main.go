@@ -38,11 +38,17 @@ func main() {
 		fmt.Println(err)
 	}
 
+	//任务管理器
+	err = master.InitJobMgr()
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	//启动Api HTTP服务
 	err = master.InitApiServer()
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	time.Sleep(time.Second * 50)
+	time.Sleep(time.Second * 500)
 }

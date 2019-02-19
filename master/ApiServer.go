@@ -1,9 +1,12 @@
 package master
 
 import (
+	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
+	"testsrc/go-destributed-crontab/common"
 	"time"
 )
 
@@ -13,8 +16,32 @@ type ApiServer struct {
 }
 
 //保存任务接口
-func handleJobSave(w http.ResponseWriter, r *http.Request) {
-
+//POST job={"name":"job1", "command":"echo hello", "cronExpr":"*****"}
+func handleJobSave(response http.ResponseWriter, request *http.Request) {
+	//1、解析POST表单
+	err := request.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+	}
+	//2、取出表单中的job字段
+	post_job := request.PostForm.Get("job")
+	//3、反序列化job
+	data := &common.Job{} //解析后的数据
+	err = json.Unmarshal([]byte(post_job), &data)
+	if err != nil {
+		fmt.Println()
+	}
+	//4、任务保存到ETCD中
+	oldJob, err := G_jobMgr.SaveJob(data)
+	if err != nil {
+		fmt.Println(err)
+	}
+	//5、返回正常应答
+	bytes, err := common.BuildResponse(0, "sucess", oldJob)
+	if err == nil {
+		response.Write(bytes)
+	}
+	return
 }
 
 var (
@@ -26,7 +53,7 @@ var (
 func InitApiServer() (err error) {
 	//配置路由
 	mux := http.NewServeMux()
-	mux.HandleFunc("job/save", handleJobSave)
+	mux.HandleFunc("/job/save", handleJobSave)
 	//启动TCP监听
 	listen, err := net.Listen("tcp", ":"+strconv.Itoa(G_config.ApiPort))
 	if err != nil {
