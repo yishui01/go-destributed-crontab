@@ -40,6 +40,32 @@ func handleJobSave(response http.ResponseWriter, request *http.Request) {
 	bytes, err := common.BuildResponse(0, "sucess", oldJob)
 	if err == nil {
 		response.Write(bytes)
+	} else {
+		fmt.Println(err)
+	}
+	return
+}
+
+//删除任务接口
+func handleJobDel(response http.ResponseWriter, request *http.Request) {
+	err := request.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+	}
+	//要删除的任务名
+	name := request.PostForm.Get("name")
+	//删除任务
+	oldJob, err := G_jobMgr.DeleteJob(name)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	//返回正常应答
+	bytes, err := common.BuildResponse(0, "success", oldJob)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		response.Write(bytes)
 	}
 	return
 }
@@ -54,6 +80,7 @@ func InitApiServer() (err error) {
 	//配置路由
 	mux := http.NewServeMux()
 	mux.HandleFunc("/job/save", handleJobSave)
+	mux.HandleFunc("/job/delete", handleJobDel)
 	//启动TCP监听
 	listen, err := net.Listen("tcp", ":"+strconv.Itoa(G_config.ApiPort))
 	if err != nil {

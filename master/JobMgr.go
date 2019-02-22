@@ -3,6 +3,7 @@ package master
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"go.etcd.io/etcd/clientv3"
 	"testsrc/go-destributed-crontab/common"
 	"time"
@@ -69,10 +70,32 @@ func (JobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
 		err = json.Unmarshal(putResponse.PrevKv.Value, &oldJobData)
 		oldJob = &oldJobData
 		if err != nil {
-			return
+			fmt.Println(err)
+			err = nil
 		}
 	}
-
 	return
+}
 
+//删除ETCD中的任务
+func (JobMgr *JobMgr) DeleteJob(name string) (oldJob *common.Job, err error) {
+	jobKey := "/cron/jobs/" + name
+	fmt.Println(jobKey)
+	//从etcd中删除它
+	delResp, err := JobMgr.kv.Delete(context.TODO(), jobKey, clientv3.WithPrevKV())
+	if err != nil {
+		return
+	}
+	//返回被删除的任务信息
+	if len(delResp.PrevKvs) != 0 {
+		oldJobData := common.Job{}
+		err := json.Unmarshal(delResp.PrevKvs[0].Value, &oldJobData)
+		oldJob = &oldJobData
+		if err != nil {
+			fmt.Println(err)
+			err = nil
+		}
+
+	}
+	return
 }
