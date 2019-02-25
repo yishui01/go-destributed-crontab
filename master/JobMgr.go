@@ -53,7 +53,7 @@ func InitJobMgr() (err error) {
 func (JobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
 	//把任务保存到/cron/jobs/任务名 -> json
 
-	jobKey := "/cron/jobs/" + job.Name
+	jobKey := common.JOB_SAVE_DIR + job.Name
 	jobValue, err := json.Marshal(job)
 	if err != nil {
 		return
@@ -79,7 +79,7 @@ func (JobMgr *JobMgr) SaveJob(job *common.Job) (oldJob *common.Job, err error) {
 
 //删除ETCD中的任务
 func (JobMgr *JobMgr) DeleteJob(name string) (oldJob *common.Job, err error) {
-	jobKey := "/cron/jobs/" + name
+	jobKey := common.JOB_SAVE_DIR + name
 	fmt.Println(jobKey)
 	//从etcd中删除它
 	delResp, err := JobMgr.kv.Delete(context.TODO(), jobKey, clientv3.WithPrevKV())
@@ -97,5 +97,46 @@ func (JobMgr *JobMgr) DeleteJob(name string) (oldJob *common.Job, err error) {
 		}
 
 	}
+	return
+}
+
+//列出当前ETCD中的任务
+func (JobMgr *JobMgr) ListJob() (jobList []*common.Job, err error) {
+	getRes, err := JobMgr.kv.Get(context.TODO(), common.JOB_SAVE_DIR, clientv3.WithPrefix())
+	if err != nil {
+		return
+	}
+	//初始化数组空间
+	jobList = make([]*common.Job, 0)
+	//遍历所有任务，进行反序列化
+	for _, kvData := range getRes.Kvs {
+		job := &common.Job{}
+		err := json.Unmarshal(kvData.Value, job)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		jobList = append(jobList, job)
+	}
+
+	return
+}
+
+//杀死任务(就是往某个目录中写值，所有的worker都监听这个目录，一旦有新值，就会把新值拿过来和当前任务名比对，如果是正在执行的任务，会直接kill)
+func (JobMgr *JobMgr) KillJob(name string) (err error) {
+
+	killKey := common.JOB_KILL_DIR + name
+
+	//让worker监听到一次put操作，创建一个租约让其稍后自动过期即可
+	leaseGrant, err := JobMgr.lease.Grant(context.TODO(), 1)
+	if err != nil {
+		return
+	}
+
+	//租约ID
+	leaseId := leaseGrant.ID
+
+	//设置killer标记
+	_, err = JobMgr.kv.Put(context.TODO(), killKey, "", clientv3.WithLease(leaseId))
 	return
 }

@@ -15,6 +15,45 @@ type ApiServer struct {
 	httpServer http.Server
 }
 
+//初始化服务
+func InitApiServer() (err error) {
+	//配置路由
+	mux := http.NewServeMux()
+	mux.HandleFunc("/job/save", handleJobSave)
+	mux.HandleFunc("/job/delete", handleJobDel)
+	mux.HandleFunc("/job/list", handleJobList)
+	mux.HandleFunc("/job/kill", handleJobKill)
+
+	//静态文件
+	webroot := http.Dir(G_config.WebRoot)     //静态文件根目录
+	staticHandler := http.FileServer(webroot) //静态文件的HTTP回调
+	mux.Handle("/", http.StripPrefix("/", staticHandler))
+
+	//启动TCP监听
+	listen, err := net.Listen("tcp", ":"+strconv.Itoa(G_config.ApiPort))
+	if err != nil {
+		return err
+	}
+
+	//创建一个HTTP服务
+	httpServer := http.Server{
+		ReadTimeout:  time.Duration(G_config.ApiReadTimeout) * time.Millisecond,
+		WriteTimeout: time.Duration(G_config.ApiWriteTimeout) * time.Millisecond,
+		Handler:      mux,
+	}
+
+	//赋值给单例
+	G_apiServer = &ApiServer{
+		httpServer: httpServer,
+	}
+
+	//启动了服务端
+	go httpServer.Serve(listen)
+
+	return
+
+}
+
 //保存任务接口
 //POST job={"name":"job1", "command":"echo hello", "cronExpr":"*****"}
 func handleJobSave(response http.ResponseWriter, request *http.Request) {
@@ -70,38 +109,44 @@ func handleJobDel(response http.ResponseWriter, request *http.Request) {
 	return
 }
 
+//列出当前全部任务
+func handleJobList(response http.ResponseWriter, request *http.Request) {
+	jobList, err := G_jobMgr.ListJob()
+	if err != nil {
+		fmt.Println(err)
+	}
+	bytes, err := common.BuildResponse(0, "success", jobList)
+	if err != nil {
+		fmt.Println(err)
+	}
+	response.Write(bytes)
+	return
+}
+
+//强制杀死当前任务
+// POST /job/kill  name=job1
+func handleJobKill(response http.ResponseWriter, request *http.Request) {
+	//解析POST表单
+	err := request.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	//要结束的任务名
+	name := request.PostForm.Get("name");
+	err = G_jobMgr.KillJob(name)
+	if err != nil {
+		fmt.Println(err)
+	}
+	bytes, err := common.BuildResponse(0, "success", nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	response.Write(bytes)
+}
+
 var (
 	//单例对象
 	G_apiServer *ApiServer
 )
-
-//初始化服务
-func InitApiServer() (err error) {
-	//配置路由
-	mux := http.NewServeMux()
-	mux.HandleFunc("/job/save", handleJobSave)
-	mux.HandleFunc("/job/delete", handleJobDel)
-	//启动TCP监听
-	listen, err := net.Listen("tcp", ":"+strconv.Itoa(G_config.ApiPort))
-	if err != nil {
-		return err
-	}
-
-	//创建一个HTTP服务
-	httpServer := http.Server{
-		ReadTimeout:  time.Duration(G_config.ApiReadTimeout) * time.Millisecond,
-		WriteTimeout: time.Duration(G_config.ApiWriteTimeout) * time.Millisecond,
-		Handler:      mux,
-	}
-
-	//赋值给单例
-	G_apiServer = &ApiServer{
-		httpServer: httpServer,
-	}
-
-	//启动了服务端
-	go httpServer.Serve(listen)
-
-	return
-
-}

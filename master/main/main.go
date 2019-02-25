@@ -50,5 +50,5 @@ func main() {
 		fmt.Println(err)
 	}
 
-	time.Sleep(time.Second * 500)
+	time.Sleep(time.Hour * 50000)
 }

@@ -12,6 +12,7 @@ type Config struct {
 
 	EtcdEndpoints   []string `json:"etcdEndpoints"`
 	EtcdDialTimeout int      `json:"etcdDialTimeout"`
+	WebRoot         string   `json:"webroot"`
 }
 
 var (
