@@ -21,7 +21,7 @@
     <!--功能按钮-->
     <div class="row">
         <div class="col-md-12">
-            <button type="button" class="btn btn-primary">新建任务</button>
+            <button type="button" class="btn btn-primary add_job">新建任务</button>
         </div>
     </div>
 
@@ -75,21 +75,21 @@
                 <form>
                     <div class="form-group">
                         <label for="recipient-name" class="control-label">任务名称:</label>
-                        <input type="text" class="form-control" id="recipient-name">
+                        <input type="text" class="form-control" id="jobName">
                     </div>
                     <div class="form-group">
                         <label for="message-text" class="control-label">shell命令:</label>
-                        <textarea class="form-control" id="message-text"></textarea>
+                        <textarea class="form-control" id="shellName"></textarea>
                     </div>
                     <div class="form-group">
                         <label for="message-text" class="control-label">cron表达式:</label>
-                        <input type="text" class="form-control" id="recipient-name">
+                        <input type="text" class="form-control" id="cronName">
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
-                <button type="button" class="btn btn-primary">保存</button>
+                <button type="button" class="btn btn-primary" onclick="putJob()">保存</button>
             </div>
         </div>
     </div>
@@ -98,95 +98,141 @@
 <script src="https://cdn.bootcss.com/jquery/2.1.3/jquery.min.js"></script>
 <script src="https://cdn.bootcss.com/twitter-bootstrap/3.3.2/js/bootstrap.min.js"></script>
 <script>
-    $(function () {
-
-        //按钮绑定事件
-        function bind(){
-            $(".edit_job").click(function (event) {
-                handler(this,'edit');
-            });
-            $(".warning_job").click(function () {
-                if(confirm("确定要终止任务吗？")){
-                    handler(this,'kill');
-                }
-            });
-            $(".delete_job").click(function () {
-                if(confirm("确定要删除任务吗？")){
-                    handler(this,'delete');
-                }
-            });
+    //保存任务
+    function putJob() {
+        if(!$.trim($("#jobName").val())){
+            alert("请输入任务名称");
+            return
         }
+        if(!$.trim($("#shellName").val())){
+            alert("请输入任务命令");
+            return
+        }
+        if(!$.trim($("#cronName").val())){
+            alert("请输入cron表达式");
+            return
+        }
+        var data= {"name":$("#jobName").val(),"command":$("#shellName").val(),"cronExpr":$("#cronName").val()};
+           $.ajax({
+               type:"post",
+               url:"/job/save",
+               data:"job="+JSON.stringify(data),
+               async:false,
+               dataType:"json",
+               success:function (data) {
+                   if (data.errno != 0) {
+                       alert("服务端出错啦")
+                       return
+                   }
+                   $("#jobName").val('')
+                   $("#shellName").val('')
+                   $("#cronName").val('')
+                   $("#editModel").modal("hide");
+                   refreshData();
+               },
+               error: function (msg) {
+                   alert("系统出错啦");
+                   return;
+               }
+           });
+    }
 
-        //路由不同的操作到不同的处理函数
-        function handler(node, active) {
+    //刷新当前任务列表
+    function refreshData() {
+        $.ajax({
+            type: 'post',
+            url: '/job/list',
+            dataType: 'json',
+            success: function (data) {
+                if (data.errno != 0) {
+                    alert("服务端出错啦")
+                    return
+                }
+                //任务数组
+                var jobList = data.data;
+                var str = '';
+                for (var i = 0; i < jobList.length; i++) {
+                    str += "<tr>"
+                    str += "<td class=\"job-name\">" + jobList[i].name + "</td>";
+                    str += "<td class=\"job-command\">" + jobList[i].command + "</td>";
+                    str += "<td class=\"job-cronExpr\">" + jobList[i].cronExpr + "</td>";
+                    str += '<td><div class="btn-toolbar "><button class="btn btn-info edit_job">编辑</button>' +
+                        '<button class="btn btn-danger delete_job">删除</button>' +
+                        '<button class="btn btn-warning warning_job">强杀</button>' +
+                        '</div></td>';
+                    str += "</tr>"
+                }
+
+                $("#table-body").html(str);
+                bind();
+            },
+            error: function (msg) {
+                alert("系统出错啦")
+                return;
+            }
+        });
+    }
+
+    //路由不同的操作到不同的处理函数
+    function handler(node, active) {
+        if (active == 'kill' || active == 'delete'){
             var jobName = $(node).parent().parent().parent().children(".job-name").html();
             if(jobName == undefined){
                 alert("未获取到节点");
                 return
             }
-            if (active == 'kill' || active == 'delete'){
-                $.ajax({
-                    type:"post",
-                    url:"/job/"+active,
-                    dataType: "json",
-                    data:{name:jobName},
-                    success:function (data) {
-                        if (data.errno != 0) {
-                            alert("服务端出错啦")
-                            return
-                        }
-                        refreshData();
-                    },
-                    error:function (msg) {
-                        alert("系统出错啦")
-                        return;
-                    }
-                });
-            } else if(active == 'edit'){
-                $("#editModel").modal("show");
-
-            } else {
-                alert("操作不合法");
-                return
-            }
-        }
-
-
-        //刷新任务列表
-        function refreshData() {
             $.ajax({
-                type: 'post',
-                url: '/job/list',
-                dataType: 'json',
-                success: function (data) {
+                type:"post",
+                url:"/job/"+active,
+                dataType: "json",
+                data:{name:jobName},
+                success:function (data) {
                     if (data.errno != 0) {
                         alert("服务端出错啦")
                         return
                     }
-                    //任务数组
-                    var jobList = data.data;
-                    var str = '';
-                    for (var i = 0; i < jobList.length; i++) {
-                        str += "<tr>"
-                        str += "<td class=\"job-name\">" + jobList[i].name + "</td>";
-                        str += "<td class=\"job-command\">" + jobList[i].command + "</td>";
-                        str += "<td class=\"job-cronExpr\">" + jobList[i].cronExpr + "</td>";
-                        str += '<td><div class="btn-toolbar "><button class="btn btn-info edit_job">编辑</button>' +
-                            '<button class="btn btn-danger delete_job">删除</button>' +
-                            '<button class="btn btn-warning warning_job">强杀</button>' +
-                            '</div></td>';
-                        str += "</tr>"
-                    }
-
-                    $("#table-body").html(str);
-                    bind();
+                    refreshData();
                 },
-                error: function (msg) {
+                error:function (msg) {
                     alert("系统出错啦")
                     return;
                 }
             });
+        } else if(active == 'edit' || active == 'add'){
+            var parentNode = $(node).parent().parent().parent();
+
+            $("#jobName").val(parentNode.children(".job-name").html())
+            $("#shellName").val(parentNode.children(".job-command").html())
+            $("#cronName").val(parentNode.children(".job-cronExpr").html())
+            $("#editModel").modal("show");
+        } else {
+            alert("操作不合法");
+            return
         }
+    }
+
+    //按钮绑定事件
+    function bind(){
+        $(".add_job").click(function (event) {
+            handler(this,'add');
+        });
+        $(".edit_job").click(function (event) {
+            handler(this,'edit');
+        });
+        $(".warning_job").click(function () {
+            if(confirm("确定要终止任务吗？")){
+                handler(this,'kill');
+            }
+        });
+        $(".delete_job").click(function () {
+            if(confirm("确定要删除任务吗？")){
+                handler(this,'delete');
+            }
+        });
+    }
+
+    $(function () {
+        //刷新任务列表
         refreshData();
     })
 </script>
