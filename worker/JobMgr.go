@@ -53,7 +53,7 @@ func InitJobMgr() (err error) {
 }
 
 //监听任务变化
-func (jobMgr *JobMgr) watchJobs() (err error) {
+func (jobMgr *JobMgr) WatchJobs() (err error) {
 	//1、get /cron/jobs/目录下的所有任务，并且获知当前集群的revision
 	getRes, err := jobMgr.kv.Get(context.TODO(), common.JOB_SAVE_DIR, clientv3.WithPrefix())
 	if err != nil {
@@ -68,14 +68,14 @@ func (jobMgr *JobMgr) watchJobs() (err error) {
 			fmt.Println(err)
 		} else {
 			jobEvent := common.BuildJobEvent(common.JOB_EVENT_SAVE, job)
-			//TODO:把这个job同步给scheduler（调度协程）
+			G_scheduler.PushJobEvent(jobEvent) //将事件推送（同步）给调度协程监听的channel
 		}
 	}
 	//2、从该revision向后监听变化事件
 	go func() {
 		watchStart := getRes.Header.Revision + 1
 		//监听 /cron/jobs/  目录的后续变化
-		watchChan := jobMgr.watcher.Watch(context.TODO(), common.JOB_SAVE_DIR, clientv3.WithRev(watchStart))
+		watchChan := jobMgr.watcher.Watch(context.TODO(), common.JOB_SAVE_DIR, clientv3.WithRev(watchStart), clientv3.WithPrefix())
 		//处理监听事件
 
 		for watchResp := range watchChan { //注意这里没有k，只有v，猜测应该是个channel
@@ -88,13 +88,14 @@ func (jobMgr *JobMgr) watchJobs() (err error) {
 						continue
 					}
 					Event := common.BuildJobEvent(common.JOB_EVENT_SAVE, jobs)
+					G_scheduler.PushJobEvent(Event) //将事件推送给调度协程监听的channel
 				case mvccpb.DELETE: //任务被删除了
 					jobName := common.ExtractJobName(string(watchEvent.Kv.Key))
 					jobs := &common.Job{Name: jobName}
 					Event := common.BuildJobEvent(common.JOB_EVENT_DELETE, jobs)
+					G_scheduler.PushJobEvent(Event) //将事件推送给调度协程监听的channel
 				}
-				//TODO 构造一个更新(删除)事件给scheduler
-				//G_Scheduler,PushJobEvent(jobEvent)
+				fmt.Println("监听到事件变化",watchEvent.Type)
 			}
 		}
 	}()
