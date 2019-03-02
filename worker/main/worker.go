@@ -32,20 +32,29 @@ func main() {
 	//初始化线程
 	initEnv()
 
-	//加载配置
+	//加载worker配置
 	err := worker.InitConfig(confFile)
 	if err != nil {
 		fmt.Println(err)
 	}
-	//初始化任务管理器
+
+	//启动任务执行器
+	err = worker.InitExecutor()
+	if err != nil {
+		fmt.Println("worker初始化任务执行器失败", err)
+	}
+
+	//启动任务管理器
 	err = worker.InitJobMgr()
 	if err != nil {
 		fmt.Println("worker初始化任务管理器失败", err)
 	}
+	//启动任务调度器
 	err = worker.InitScheduler()
 	if err != nil {
 		fmt.Println("worker初始化调度协程失败", err)
 	}
+	//监听etcd任务变化
 	err = worker.G_jobMgr.WatchJobs()
 	if err != nil {
 		fmt.Println("worker监听任务失败", err)

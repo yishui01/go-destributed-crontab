@@ -8,8 +8,10 @@ import (
 
 //任务调度 channel
 type Scheduler struct {
-	jobEventChan chan *common.JobEvent               //etcd任务事件队列
-	jobList      map[string]*common.JobSchedulerPlan //任务调度计划表
+	jobEventChan  chan *common.JobEvent               //etcd任务事件队列
+	jobList       map[string]*common.JobSchedulerPlan //任务调度计划表
+	jobExecuting  map[string]*common.JobExecuteInfo   //任务执行表
+	jobResultChan chan *common.JobResult              //任务结果队列
 }
 
 var (
@@ -43,6 +45,23 @@ func (scheduler *Scheduler) handleJobEvent(jobEvent *common.JobEvent) {
 	}
 }
 
+//执行协程
+func (scheduler *Scheduler) RunJob(jobPlan *common.JobSchedulerPlan) {
+	//将正在执行的任务放到调度结构体的任务执行表中，当执行表存在当前任务时
+	//代表上一个相同的任务还没执行完，执行跳过
+	if _, existed := scheduler.jobExecuting[jobPlan.Job.Name]; existed {
+		fmt.Printf("上一次 %s 任务还未执行完，本次执行跳过\r\n", jobPlan.Job.Name)
+		return
+	}
+	//如果不存在，那就创建一个，存入map中
+	jobExcuteInfo := common.BuildJobExecuteInfo(jobPlan)
+	scheduler.jobExecuting[jobPlan.Job.Name] = jobExcuteInfo
+
+	//执行任务
+	G_executor.Run(jobExcuteInfo)
+
+}
+
 //重新计算任务调度状态,返回未过期的任务中，最近要执行的任务的距离时间
 func (scheduler *Scheduler) TrySchedule() (nextActiveTime time.Duration) {
 	var nearTime *time.Time
@@ -55,8 +74,7 @@ func (scheduler *Scheduler) TrySchedule() (nextActiveTime time.Duration) {
 	//有任务：1、遍历所有的任务
 	for _, jobPlan := range scheduler.jobList {
 		if (jobPlan.NextTime.Unix() <= time.Now().Unix()) {
-			//TODO 任务到期，尝试执行任务（有可能上一次任务还未执行完毕，那么本次就不会启动任务了）
-			fmt.Println("执行任务", jobPlan.Job.Name)
+			scheduler.RunJob(jobPlan)                        //尝试执行任务
 			jobPlan.NextTime = jobPlan.Expr.Next(time.Now()) //更新下次任务执行时间
 		}
 
@@ -86,9 +104,20 @@ func (scheduler *Scheduler) scheduleLoop() {
 			scheduler.handleJobEvent(jobEvent)
 		case <-schedulerTimer.C:
 			//最近的任务到期了，调度一次
+		case result := <-scheduler.jobResultChan:
+			//有任务执行结果回来了
+			scheduler.handlerResult(result)
 		}
-		fmt.Println(time.Now())
+
 	}
+}
+
+//处理任务执行返回的结果
+func (scheduler *Scheduler) handlerResult(result *common.JobResult) {
+	//删除执行列表中的任务
+	delete(scheduler.jobExecuting, result.ExecuteInfo.Job.Name)
+
+	fmt.Printf("任务 %s 执行完成, 输出结果为 %s, err为：%s, 结束时间为:%s \r\n\r\n", result.ExecuteInfo.Job.Name, result.Output, result.Err, result.EndTime)
 }
 
 //推送事件到调度协程监听的channel中
@@ -99,10 +128,17 @@ func (scheduler *Scheduler) PushJobEvent(jobEvent *common.JobEvent) {
 //初始化调度器
 func InitScheduler() (err error) {
 	G_scheduler = &Scheduler{
-		jobEventChan: make(chan *common.JobEvent, 1000),
-		jobList:      make(map[string]*common.JobSchedulerPlan),
+		jobEventChan:  make(chan *common.JobEvent, 1000),
+		jobList:       make(map[string]*common.JobSchedulerPlan),
+		jobExecuting:  make(map[string]*common.JobExecuteInfo),
+		jobResultChan: make(chan *common.JobResult, 1000),
 	}
 	//启动调度协程
 	go G_scheduler.scheduleLoop()
 	return
+}
+
+//回传任务执行结果
+func (scheduler *Scheduler) ReturnJobResult(result *common.JobResult) {
+	scheduler.jobResultChan <- result
 }
