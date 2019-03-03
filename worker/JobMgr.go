@@ -95,10 +95,16 @@ func (jobMgr *JobMgr) WatchJobs() (err error) {
 					Event := common.BuildJobEvent(common.JOB_EVENT_DELETE, jobs)
 					G_scheduler.PushJobEvent(Event) //将事件推送给调度协程监听的channel
 				}
-				fmt.Println("监听到事件变化",watchEvent.Type)
+				fmt.Println("监听到事件变化", watchEvent.Type)
 			}
 		}
 	}()
 
+	return
+}
+
+//创建任务执行锁
+func (jobMgr *JobMgr) CreateJobLock(jobName string) (jobLock *JobLock) {
+	jobLock = InitJobLock(jobName, jobMgr.kv, jobMgr.lease)
 	return
 }

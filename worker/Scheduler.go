@@ -97,7 +97,6 @@ func (scheduler *Scheduler) scheduleLoop() {
 		sleepTime := scheduler.TrySchedule()
 		//调度延迟定时器
 		schedulerTimer := time.NewTimer(sleepTime)
-
 		select {
 		case jobEvent := <-scheduler.jobEventChan: //监听任务变化事件（任务更新、删除）
 			//对内存中维护的任务列表进行调整（保持与etcd中的任务一致）
