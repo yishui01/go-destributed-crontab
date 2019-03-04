@@ -12,6 +12,9 @@ type Config struct {
 
 	EtcdEndpoints   []string `json:"etcdEndpoints"`
 	EtcdDialTimeout int      `json:"etcdDialTimeout"`
+
+	MongoDbServer  string `json:"mongodbServer"`
+	MongoDbTimeout int    `json:"mongodbTimeout"`
 }
 
 var (

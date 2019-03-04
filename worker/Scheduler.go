@@ -42,6 +42,12 @@ func (scheduler *Scheduler) handleJobEvent(jobEvent *common.JobEvent) {
 			//如果存在这个任务的话，就删除
 			delete(scheduler.jobList, jobEvent.Job.Name)
 		}
+	case common.JOB_EVENT_KILL:
+		fmt.Println("捕获kill事件", jobEvent.Job.Name)
+		if jobExecuteInfo, existed := scheduler.jobExecuting[jobEvent.Job.Name]; existed {
+			//如果任务正在执行，取消任务执行
+			jobExecuteInfo.CancelFunc()
+		}
 	}
 }
 
@@ -50,7 +56,7 @@ func (scheduler *Scheduler) RunJob(jobPlan *common.JobSchedulerPlan) {
 	//将正在执行的任务放到调度结构体的任务执行表中，当执行表存在当前任务时
 	//代表上一个相同的任务还没执行完，执行跳过
 	if _, existed := scheduler.jobExecuting[jobPlan.Job.Name]; existed {
-		fmt.Printf("上一次 %s 任务还未执行完，本次执行跳过\r\n", jobPlan.Job.Name)
+		fmt.Printf(" %s 任务还未执行完，跳过\r\n", jobPlan.Job.Name)
 		return
 	}
 	//如果不存在，那就创建一个，存入map中
@@ -115,7 +121,25 @@ func (scheduler *Scheduler) scheduleLoop() {
 func (scheduler *Scheduler) handlerResult(result *common.JobResult) {
 	//删除执行列表中的任务
 	delete(scheduler.jobExecuting, result.ExecuteInfo.Job.Name)
-
+	//生成执行日志
+	//if result.Err != common.ERR_LOCK_ALREADY_EMPLOY {
+	//	//如果不是锁被占用导致的错误
+	//	//jobLog := &common.JobLog{
+	//	//	JobName:      result.ExecuteInfo.Job.Name,
+	//	//	Command:      result.ExecuteInfo.Job.Command,
+	//	//	Output:       string(result.Output),
+	//	//	PlanTime:     result.ExecuteInfo.PlanTime.Unix(),
+	//	//	ScheduleTime: result.ExecuteInfo.RealTime.Unix(),
+	//	//	StartTime:    result.StartTime.Unix(),
+	//	//	EndTime:      result.EndTime.Unix(),
+	//	//	Err:          result.Err.Error(),
+	//	//}
+	//
+	//	//go func() {
+	//	//	//将日志发送到日志渠道
+	//	//	G_logDb.logChan <- jobLog
+	//	//}()
+	//}
 	fmt.Printf("任务 %s 执行完成, 输出结果为 %s, err为：%s, 结束时间为:%s \r\n\r\n", result.ExecuteInfo.Job.Name, result.Output, result.Err, result.EndTime)
 }
 

@@ -12,7 +12,11 @@
   "etcdEndpoints": ["39.108.52.210:2379"],
 
   "etcd的连接超时": "单位毫秒",
-  "etcdDialTimeout": 5000
+  "etcdDialTimeout": 5000,
 
+  "mongodb地址": "",
+  "mongodbServer":"mongodb://39.108.52.210:27017",
 
+  "mongodb的连接超时": "单位毫秒",
+  "mongodbTimeout": 5000
 }

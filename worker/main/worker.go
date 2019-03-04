@@ -44,20 +44,17 @@ func main() {
 		fmt.Println("worker初始化任务执行器失败", err)
 	}
 
-	//启动任务管理器
-	err = worker.InitJobMgr()
-	if err != nil {
-		fmt.Println("worker初始化任务管理器失败", err)
-	}
 	//启动任务调度器
 	err = worker.InitScheduler()
 	if err != nil {
 		fmt.Println("worker初始化调度协程失败", err)
 	}
-	//监听etcd任务变化
-	err = worker.G_jobMgr.WatchJobs()
+
+	//启动任务管理器
+	err = worker.InitJobMgr()
 	if err != nil {
-		fmt.Println("worker监听任务失败", err)
+		fmt.Println("worker初始化任务管理器失败", err)
 	}
+
 	time.Sleep(time.Second * 500)
 }

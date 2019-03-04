@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
+	"strings"
 	"testsrc/go-destributed-crontab/common"
 	"time"
 )
@@ -48,6 +49,61 @@ func InitJobMgr() (err error) {
 		lease:   lease,
 		watcher: watcher,
 	}
+
+	//监听etcd任务变化
+	err = G_jobMgr.WatchJobs()
+	if err != nil {
+		fmt.Println("worker监听任务失败", err)
+	}
+
+	//启动监听killer
+	G_jobMgr.watchKiller()
+
+	return
+}
+
+//监听强杀任务通知
+func (jobMgr *JobMgr) watchKiller() {
+	//监听/cron/killer 目录
+	////1、get /cron/killer/目录下的所有任务，并且获知当前集群的revision
+	//getRes, err := jobMgr.kv.Get(context.TODO(), common.JOB_KILL_DIR, clientv3.WithPrefix())
+	//if err != nil {
+	//	fmt.Println(err)
+	//	return
+	//}
+	////遍历当前任务
+	//for _, kvpair := range getRes.Kvs {
+	//	//反序列化json得到Job
+	//	job, err := common.UnSerialize(kvpair.Value)
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	} else {
+	//		jobEvent := common.BuildJobEvent(common.JOB_EVENT_SAVE, job)
+	//		G_scheduler.PushJobEvent(jobEvent) //将事件推送（同步）给调度协程监听的channel
+	//	}
+	//}
+	//2、从该revision向后监听变化事件
+	go func() {
+		//监听 /cron/killer/  目录的后续变化
+		watchChan := jobMgr.watcher.Watch(context.TODO(), common.JOB_KILL_DIR, clientv3.WithPrefix())
+		//处理监听事件
+
+		for watchResp := range watchChan { //注意这里没有k，只有v，猜测应该是个channel
+			for _, watchEvent := range watchResp.Events { //这里之前没有写k，只写了v，结果v被赋值成k了，死活调用不出Type变量
+				switch watchEvent.Type {
+				case mvccpb.PUT: //任务保存（修改）
+					jobName := strings.TrimPrefix(string(watchEvent.Kv.Key), common.JOB_KILL_DIR)
+					jobEvent := common.BuildJobEvent(common.JOB_EVENT_KILL, &common.Job{Name: jobName})
+					G_scheduler.PushJobEvent(jobEvent) //将事件推送给调度协程监听的channel
+				case mvccpb.DELETE: //任务被删除了,不关心
+					//jobName := strings.TrimPrefix(string(watchEvent.Kv.Key), common.JOB_KILL_DIR)
+					//fmt.Println("监听到killer目录，任务名为", jobName)
+					//G_scheduler.PushJobEvent(Event) //将事件推送给调度协程监听的channel
+				}
+				//fmt.Println("监听到killer事件变化", watchEvent.Type)
+			}
+		}
+	}()
 
 	return
 }
