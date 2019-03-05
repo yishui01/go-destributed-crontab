@@ -64,25 +64,6 @@ func InitJobMgr() (err error) {
 
 //监听强杀任务通知
 func (jobMgr *JobMgr) watchKiller() {
-	//监听/cron/killer 目录
-	////1、get /cron/killer/目录下的所有任务，并且获知当前集群的revision
-	//getRes, err := jobMgr.kv.Get(context.TODO(), common.JOB_KILL_DIR, clientv3.WithPrefix())
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return
-	//}
-	////遍历当前任务
-	//for _, kvpair := range getRes.Kvs {
-	//	//反序列化json得到Job
-	//	job, err := common.UnSerialize(kvpair.Value)
-	//	if err != nil {
-	//		fmt.Println(err)
-	//	} else {
-	//		jobEvent := common.BuildJobEvent(common.JOB_EVENT_SAVE, job)
-	//		G_scheduler.PushJobEvent(jobEvent) //将事件推送（同步）给调度协程监听的channel
-	//	}
-	//}
-	//2、从该revision向后监听变化事件
 	go func() {
 		//监听 /cron/killer/  目录的后续变化
 		watchChan := jobMgr.watcher.Watch(context.TODO(), common.JOB_KILL_DIR, clientv3.WithPrefix())

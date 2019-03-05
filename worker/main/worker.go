@@ -35,25 +35,37 @@ func main() {
 	//加载worker配置
 	err := worker.InitConfig(confFile)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("加载worker配置失败", err)
+		return
+	}
+
+	//启动日志协程
+	err = worker.InitLogDb()
+	if err != nil {
+		fmt.Println("worker初始化日志协程失败", err)
+		return
 	}
 
 	//启动任务执行器
 	err = worker.InitExecutor()
 	if err != nil {
 		fmt.Println("worker初始化任务执行器失败", err)
+		return
 	}
 
-	//启动任务调度器
+	//启动任务调度器，死循环轮询任务列表，调用上面的执行协程执行任务，监听下面的任务管理器协程推送过来的事件，
 	err = worker.InitScheduler()
 	if err != nil {
 		fmt.Println("worker初始化调度协程失败", err)
+		return
 	}
 
-	//启动任务管理器
+	//启动任务管理器，监听etcd的任务键值对变化
 	err = worker.InitJobMgr()
 	if err != nil {
 		fmt.Println("worker初始化任务管理器失败", err)
+		return
+
 	}
 
 	time.Sleep(time.Second * 500)

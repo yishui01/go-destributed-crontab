@@ -122,24 +122,25 @@ func (scheduler *Scheduler) handlerResult(result *common.JobResult) {
 	//删除执行列表中的任务
 	delete(scheduler.jobExecuting, result.ExecuteInfo.Job.Name)
 	//生成执行日志
-	//if result.Err != common.ERR_LOCK_ALREADY_EMPLOY {
-	//	//如果不是锁被占用导致的错误
-	//	//jobLog := &common.JobLog{
-	//	//	JobName:      result.ExecuteInfo.Job.Name,
-	//	//	Command:      result.ExecuteInfo.Job.Command,
-	//	//	Output:       string(result.Output),
-	//	//	PlanTime:     result.ExecuteInfo.PlanTime.Unix(),
-	//	//	ScheduleTime: result.ExecuteInfo.RealTime.Unix(),
-	//	//	StartTime:    result.StartTime.Unix(),
-	//	//	EndTime:      result.EndTime.Unix(),
-	//	//	Err:          result.Err.Error(),
-	//	//}
-	//
-	//	//go func() {
-	//	//	//将日志发送到日志渠道
-	//	//	G_logDb.logChan <- jobLog
-	//	//}()
-	//}
+	if result.Err != common.ERR_LOCK_ALREADY_EMPLOY {
+		//如果不是锁被占用导致的错误
+		jobLog := &common.JobLog{
+			JobName:      result.ExecuteInfo.Job.Name,
+			Command:      result.ExecuteInfo.Job.Command,
+			Output:       string(result.Output),
+			PlanTime:     result.ExecuteInfo.PlanTime.Unix(),
+			ScheduleTime: result.ExecuteInfo.RealTime.Unix(),
+			StartTime:    result.StartTime.Unix(),
+			EndTime:      result.EndTime.Unix(),
+		}
+		if result.Err != nil {
+			jobLog.Err = result.Err.Error()
+		}
+		go func() {
+			//将日志发送到日志渠道
+			G_logDb.logChan <- jobLog
+		}()
+	}
 	fmt.Printf("任务 %s 执行完成, 输出结果为 %s, err为：%s, 结束时间为:%s \r\n\r\n", result.ExecuteInfo.Job.Name, result.Output, result.Err, result.EndTime)
 }
 

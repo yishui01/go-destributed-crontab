@@ -2,7 +2,9 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"github.com/mongodb/mongo-go-driver/mongo"
+	"github.com/mongodb/mongo-go-driver/mongo/readpref"
 	"testsrc/go-destributed-crontab/common"
 	"time"
 )
@@ -31,6 +33,11 @@ func InitLogDb() (err error) {
 	if err != nil {
 		return
 	}
+	err = client.Ping(ctx, readpref.Primary())
+	if err != nil {
+		fmt.Println("Mongodb连接失败")
+		return
+	}
 	G_logDb = &LogDb{
 		client:        client,
 		logCollection: client.Database("cron").Collection("log"),
@@ -38,18 +45,29 @@ func InitLogDb() (err error) {
 	}
 
 	//启动协程进行监听日志channel，写入日志
-	go G_logDb.Info();
+	go G_logDb.Info()
 	return
 }
 
 //写入日志
-func (logodb *LogDb) Info() (err error) {
+func (logodb *LogDb) Info() () {
 	for {
 		select {
 		case log := <-logodb.logChan:
 			//把这条日志写到mongodb中
-			logodb.logCollection.InsertOne(context.TODO(), log)
+			go func() {
+				fmt.Println("写入日志到mongodb中")
+				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+				res, err := logodb.logCollection.InsertOne(ctx, log)
+				if err != nil {
+					fmt.Println("写入错误")
+				} else {
+					fmt.Println("写入成功, insertId为", res.InsertedID)
+				}
+
+			}()
+
 		}
 	}
-	return
+
 }
