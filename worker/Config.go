@@ -15,6 +15,9 @@ type Config struct {
 
 	MongoDbServer  string `json:"mongodbServer"`
 	MongoDbTimeout int    `json:"mongodbTimeout"`
+
+	JobLogBatchSize int `json:"jobLogBatchSize"`
+	JobLogCommitTimeout int `json:"jobLogCommitTimeout"`
 }
 
 var (

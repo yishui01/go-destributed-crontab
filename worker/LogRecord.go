@@ -51,23 +51,46 @@ func InitLogDb() (err error) {
 
 //写入日志
 func (logodb *LogDb) Info() () {
+	var logBatch *common.LogBatch
+	var commitTimer *time.Timer
 	for {
 		select {
 		case log := <-logodb.logChan:
-			//把这条日志写到mongodb中
-			go func() {
-				fmt.Println("写入日志到mongodb中")
-				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-				res, err := logodb.logCollection.InsertOne(ctx, log)
-				if err != nil {
-					fmt.Println("写入错误")
-				} else {
-					fmt.Println("写入成功, insertId为", res.InsertedID)
+			//初始化日志批次
+			if logBatch == nil {
+				logBatch = &common.LogBatch{}
+				commitTimer = time.NewTimer(time.Duration(G_config.JobLogCommitTimeout) * time.Millisecond)
+			}
+			//把新日志追加到批次中
+			logBatch.Logs = append(logBatch.Logs, log)
+			//如果批次满了，就立即写入
+			if len(logBatch.Logs) >= G_config.JobLogBatchSize {
+				G_logDb.SaveLog(logBatch) //批量写入日志到mongodb中,这里不要开协程，否则会有问题
+				//假设开一个协程，协程中保存日志并清空，然后在保存的时候，这里的for已经到下一次循环了，也就是可能会有
+				//新的日志往里面写，然后此时上一个协程保存完毕，协程内执行清空日志，会把本次循环新保存的日志也清空了，因为传的是指针
+				logBatch.Logs = nil //写入完成，清空日志
+			}
+			select {
+			case <-commitTimer.C:
+				//这里定时器到时间了也执行写入，没到时间也不阻塞，直接走default
+				if logBatch.Logs != nil {
+					//这里加个判断，防止上面已经执行写入了，这里又执行一次写入
+					G_logDb.SaveLog(logBatch)
+					logBatch.Logs = nil
+					commitTimer = time.NewTimer(time.Duration(G_config.JobLogCommitTimeout) * time.Millisecond)
 				}
-
-			}()
-
+			default:
+			}
 		}
 	}
+}
 
+//批量写入日志到mongodb中
+func (logodb *LogDb) SaveLog(batch *common.LogBatch) {
+	_, err := logodb.logCollection.InsertMany(context.TODO(), batch.Logs)
+	if err != nil {
+		fmt.Println("写入日志错误", err)
+	} else {
+		fmt.Println("写入日志成功")
+	}
 }

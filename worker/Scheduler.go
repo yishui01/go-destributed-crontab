@@ -136,10 +136,12 @@ func (scheduler *Scheduler) handlerResult(result *common.JobResult) {
 		if result.Err != nil {
 			jobLog.Err = result.Err.Error()
 		}
-		go func() {
-			//将日志发送到日志渠道
-			G_logDb.logChan <- jobLog
-		}()
+		//将日志发送到日志渠道,发不进去就直接丢弃
+		select {
+		case G_logDb.logChan <- jobLog:
+		default:
+			fmt.Println("日志发不进去你敢信？")
+		}
 	}
 	fmt.Printf("任务 %s 执行完成, 输出结果为 %s, err为：%s, 结束时间为:%s \r\n\r\n", result.ExecuteInfo.Job.Name, result.Output, result.Err, result.EndTime)
 }

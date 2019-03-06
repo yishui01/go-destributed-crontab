@@ -18,5 +18,11 @@
   "mongodbServer":"mongodb://39.108.52.210:27017",
 
   "mongodb的连接超时": "单位毫秒",
-  "mongodbTimeout": 5000
+  "mongodbTimeout": 5000,
+
+  "日志批次大小": "为了减少mongodb网络延迟，打包成一批写入(例如100条写入一次)",
+  "jobLogBatchSize": 100,
+
+  "日志定时写入时间": "日志写入定时器，单位为微秒",
+  "jobLogCommitTimeout": 5000
 }
