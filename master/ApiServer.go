@@ -24,6 +24,8 @@ func InitApiServer() (err error) {
 	mux.HandleFunc("/job/list", handleJobList)
 	mux.HandleFunc("/job/kill", handleJobKill)
 
+	mux.HandleFunc("/job/log", handleJobLog)
+
 	//静态文件
 	webroot := http.Dir(G_config.WebRoot)     //静态文件根目录
 	staticHandler := http.FileServer(webroot) //静态文件的HTTP回调
@@ -52,6 +54,46 @@ func InitApiServer() (err error) {
 
 	return
 
+}
+
+//查询任务日志接口
+func handleJobLog(response http.ResponseWriter, request *http.Request) {
+	//解析GET参数
+	err := request.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	//获取请求参数 /job/log?name=job10&page=0&limit=20
+	jobName_str := request.Form.Get("name")
+	page_str := request.Form.Get("page")
+	limit_str := request.Form.Get("limit")
+	page, err := strconv.Atoi(page_str);
+	if err != nil {
+		fmt.Println(page, err)
+		page = 1;
+	}
+	limit, err := strconv.Atoi(limit_str);
+	if err != nil {
+		fmt.Println(limit, err)
+		limit = 20;
+	}
+	var skip int
+	if (page-1)*limit < 0 {
+		skip = 0
+	} else {
+		skip = (page - 1) * limit
+	}
+	fmt.Println("page--", (page-1)*limit, "--limit---", limit)
+	//查询日志
+	logs_arr, err := G_logDb.getLogs(jobName_str, skip, limit)
+	bytes, err := common.BuildResponse(0, "sucess", logs_arr)
+	if err == nil {
+		response.Write(bytes)
+	} else {
+		fmt.Println(err)
+	}
+	return
 }
 
 //保存任务接口

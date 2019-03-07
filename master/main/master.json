@@ -15,7 +15,11 @@
   "etcdDialTimeout": 5000,
 
   "web页面根目录": "web静态页面目录",
-  "webroot": "./webroot"
+  "webroot": "./webroot",
 
+  "mongodb地址": "",
+  "mongodbServer":"mongodb://39.108.52.210:27017",
 
+  "mongodb的连接超时": "单位毫秒",
+  "mongodbTimeout": 5000
 }

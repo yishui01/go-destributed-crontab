@@ -38,6 +38,13 @@ func main() {
 		fmt.Println(err)
 	}
 
+	//初始化日志协程
+	err = master.InitLogDb()
+	if err != nil {
+		fmt.Println("master初始化日志协程失败", err)
+		return
+	}
+
 	//任务管理器
 	err = master.InitJobMgr()
 	if err != nil {
