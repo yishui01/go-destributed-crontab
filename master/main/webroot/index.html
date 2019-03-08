@@ -63,6 +63,7 @@
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="editModel" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -95,46 +96,111 @@
     </div>
 </div>
 
+
+<div class="modal fade" id="logModel" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+    <div class="modal-dialog" role="document" style="width: 1000px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="exampleModalLabel">最新50条任务日志（5秒写入一次mongo）</h4>
+            </div>
+            <div class="modal-body">
+                <table class="table table-bordered table-hover" style="margin-bottom: 0px;">
+                    <!-- On rows -->
+                    <tr class="active">
+                        <td>序号</td>
+                        <td>shell命令</td>
+                        <td>错误原因</td>
+                        <td>脚本输出</td>
+                        <td>计划开始时间</td>
+                        <td>实际调度时间</td>
+                        <td>开始执行时间</td>
+                        <td>执行结束时间</td>
+                    </tr>
+
+                    <!-- On cells (`td` or `th`) -->
+                    <tbody id="tbody">
+
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer" style="margin-top: 0px;padding-top: 0px;">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination">
+                        <!--
+                        <li>
+                            <a href="#" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        -->
+
+                        <li class="active p_li"><a href="#">1</a></li>
+                        <li class="p_li"><a href="#">2</a></li>
+                        <li class="p_li"><a href="#">3</a></li>
+                        <li class="p_li"><a href="#">4</a></li>
+                        <li class="p_li"><a href="#">5</a></li>
+                        <!--
+                        <li>
+                            <a href="#" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        -->
+
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.bootcss.com/jquery/2.1.3/jquery.min.js"></script>
 <script src="https://cdn.bootcss.com/twitter-bootstrap/3.3.2/js/bootstrap.min.js"></script>
 <script>
+
+    const pageSize = 10;
+    G_jobName = '';
+    G_page = 0;
+
     //保存任务
     function putJob() {
-        if(!$.trim($("#jobName").val())){
+        if (!$.trim($("#jobName").val())) {
             alert("请输入任务名称");
             return
         }
-        if(!$.trim($("#shellName").val())){
+        if (!$.trim($("#shellName").val())) {
             alert("请输入任务命令");
             return
         }
-        if(!$.trim($("#cronName").val())){
+        if (!$.trim($("#cronName").val())) {
             alert("请输入cron表达式");
             return
         }
-        var data= {"name":$("#jobName").val(),"command":$("#shellName").val(),"cronExpr":$("#cronName").val()};
-           $.ajax({
-               type:"post",
-               url:"/job/save",
-               data:"job="+JSON.stringify(data),
-               async:false,
-               dataType:"json",
-               success:function (data) {
-                   if (data.errno != 0) {
-                       alert("服务端出错啦")
-                       return
-                   }
-                   $("#jobName").val('')
-                   $("#shellName").val('')
-                   $("#cronName").val('')
-                   $("#editModel").modal("hide");
-                   refreshData();
-               },
-               error: function (msg) {
-                   alert("系统出错啦");
-                   return;
-               }
-           });
+        var data = {"name": $("#jobName").val(), "command": $("#shellName").val(), "cronExpr": $("#cronName").val()};
+        $.ajax({
+            type: "post",
+            url: "/job/save",
+            data: "job=" + JSON.stringify(data),
+            async: false,
+            dataType: "json",
+            success: function (data) {
+                if (data.errno != 0) {
+                    alert("服务端出错啦")
+                    return
+                }
+                $("#jobName").val('')
+                $("#shellName").val('')
+                $("#cronName").val('')
+                $("#editModel").modal("hide");
+                refreshData();
+            },
+            error: function (msg) {
+                alert("系统出错啦");
+                return;
+            }
+        });
     }
 
     //刷新当前任务列表
@@ -159,6 +225,7 @@
                     str += '<td><div class="btn-toolbar "><button class="btn btn-info edit_job">编辑</button>' +
                         '<button class="btn btn-danger delete_job">删除</button>' +
                         '<button class="btn btn-warning warning_job">强杀</button>' +
+                        '<button class="btn btn-success log_job">日志</button>' +
                         '</div></td>';
                     str += "</tr>"
                 }
@@ -175,30 +242,34 @@
 
     //路由不同的操作到不同的处理函数
     function handler(node, active) {
-        if (active == 'kill' || active == 'delete'){
+        if (active == 'kill' || active == 'delete' || active == 'log') {
             var jobName = $(node).parent().parent().parent().children(".job-name").html();
-            if(jobName == undefined){
+            if (jobName == undefined) {
                 alert("未获取到节点");
                 return
             }
-            $.ajax({
-                type:"post",
-                url:"/job/"+active,
-                dataType: "json",
-                data:{name:jobName},
-                success:function (data) {
-                    if (data.errno != 0) {
-                        alert("服务端出错啦")
-                        return
+            if (active == 'log') {
+                getLog(jobName, 1, pageSize);
+            } else {
+                $.ajax({
+                    type: "post",
+                    url: "/job/" + active,
+                    dataType: "json",
+                    data: {name: jobName},
+                    success: function (data) {
+                        if (data.errno != 0) {
+                            alert("服务端出错啦")
+                            return
+                        }
+                        refreshData();
+                    },
+                    error: function (msg) {
+                        alert("系统出错啦")
+                        return;
                     }
-                    refreshData();
-                },
-                error:function (msg) {
-                    alert("系统出错啦")
-                    return;
-                }
-            });
-        } else if(active == 'edit' || active == 'add'){
+                });
+            }
+        } else if (active == 'edit' || active == 'add') {
             var parentNode = $(node).parent().parent().parent();
 
             $("#jobName").val(parentNode.children(".job-name").html())
@@ -212,29 +283,92 @@
     }
 
     //按钮绑定事件
-    function bind(){
+    function bind() {
         $(".add_job").click(function (event) {
-            handler(this,'add');
+            handler(this, 'add');
         });
         $(".edit_job").click(function (event) {
-            handler(this,'edit');
+            handler(this, 'edit');
         });
         $(".warning_job").click(function () {
-            if(confirm("确定要终止任务吗？")){
-                handler(this,'kill');
+            if (confirm("确定要终止任务吗？")) {
+                handler(this, 'kill');
             }
         });
         $(".delete_job").click(function () {
-            if(confirm("确定要删除任务吗？")){
-                handler(this,'delete');
+            if (confirm("确定要删除任务吗？")) {
+                handler(this, 'delete');
             }
         });
+        $(".log_job").click(function () {
+            handler(this, 'log');
+        });
+
     }
 
     $(function () {
         //刷新任务列表
         refreshData();
+        //绑定日志分页
+        $(".p_li").each(function (k, v) {
+            $(v).click(function () {
+                getLog(G_jobName, $(v).children('a').html(), pageSize)
+                $(".p_li").removeClass("active");
+                $(v).addClass("active");
+            })
+        });
     })
+
+    function getLog(jobName, page, pageSize) {
+        G_jobName = jobName
+        G_page = page
+        $.ajax({
+            type: "get",
+            url: "/job/log",
+            dataType: "json",
+            data: {
+                name: jobName, page: page, limit: pageSize
+            },
+            success: function (data) {
+                if (data.errno != 0) {
+                    alert("服务端出错啦")
+                    return
+                }
+                var str = "";
+                for (var i = 0; i < data.data.length; i++) {
+                    str += "<tr>";
+                    str += "<td>" + (parseInt(i) + parseInt(((G_page - 1) < 0 ? 0 : (G_page - 1)) * pageSize) + 1) + "</td>";
+                    str += "<td>" + data.data[i].Command + "</td>";
+                    str += "<td>" + data.data[i].Err + "</td>";
+                    str += "<td>" + data.data[i].Output + "</td>";
+                    str += "<td>" + timestampToTime(data.data[i].PlanTime) + "</td>";
+                    str += "<td>" + timestampToTime(data.data[i].ScheduleTime) + "</td>";
+                    str += "<td>" + timestampToTime(data.data[i].StartTime) + "</td>";
+                    str += "<td>" + timestampToTime(data.data[i].EndTime) + "</td>";
+                    str += "</tr>";
+                }
+                $("#tbody").html(str);
+                $("#logModel").modal("show");
+            }
+            ,
+            error: function (msg) {
+                alert("系统出错啦")
+                return;
+            }
+        })
+        ;
+    }
+
+    function timestampToTime(timestamp) {
+        var date = new Date(timestamp * 1000);//时间戳为10位需*1000，时间戳为13位的话不需乘1000
+        var Y = date.getFullYear() + '-';
+        var M = (date.getMonth() + 1 < 10 ? '0' + (date.getMonth() + 1) : date.getMonth() + 1) + '-';
+        var D = date.getDate() + ' ';
+        var h = date.getHours() + ':';
+        var m = date.getMinutes() + ':';
+        var s = date.getSeconds();
+        return Y + M + D + h + m + s;
+    }
 </script>
 </body>
 </html>
