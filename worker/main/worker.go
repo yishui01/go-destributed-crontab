@@ -39,6 +39,13 @@ func main() {
 		return
 	}
 
+	//服务注册
+	err = worker.InitRegister()
+	if err != nil {
+		fmt.Println("worker服务注册失败", err)
+		return
+	}
+
 	//启动日志协程
 	err = worker.InitLogDb()
 	if err != nil {

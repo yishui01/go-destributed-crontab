@@ -14,6 +14,9 @@ const (
 	//事务锁目录
 	JOB_LOCK_DIR = "/cron/lock/"
 
+	//worker注册目录
+	WORKER_REGISTER_DIR = "/cron/workers/"
+
 	//保存任务事件
 	JOB_EVENT_SAVE = 1
 
@@ -26,3 +29,5 @@ const (
 
 //锁被占用错误信息
 var ERR_LOCK_ALREADY_EMPLOY error = errors.New("lock_is_already_employ")
+//没有找到网卡错误信息--------------------------------------------------------------------
+var ERR_NOIP error = errors.New("not found the ipv4")
