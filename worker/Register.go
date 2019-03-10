@@ -74,17 +74,21 @@ func (register *Register) SignUp() {
 
 //获取本机网卡IP
 func GetLocalIp() (ipv4 string, err error) {
-	addrs, err := net.InterfaceAddrs() //获取所有网卡
+	netInterfaces, err := net.Interfaces() //获取所有网卡
 	if err != nil {
-		return
+		fmt.Println("net.Interfaces failed, err:", err.Error())
 	}
-	//取第一个非localhost的网卡
-	for _, addr := range addrs {
-		if ipNet, isIpNet := addr.(*net.IPNet); isIpNet && !ipNet.IP.IsLoopback() {
-			//如果解析成功，且不是回环网卡,那接下来就判断是不是ipv6，是就跳过,只要ipv4的
-			if ipNet.IP.To4() != nil {
-				ipv4 = ipNet.IP.String()
-				return
+	for i := 0; i < len(netInterfaces); i++ {
+		if (netInterfaces[i].Flags & net.FlagUp) != 0 { //排除不用的网卡
+			addrs, _ := netInterfaces[i].Addrs()
+
+			for _, address := range addrs {
+				if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+					if ipnet.IP.To4() != nil {
+						ipv4 = ipnet.IP.String()
+						return
+					}
+				}
 			}
 		}
 	}

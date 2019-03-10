@@ -86,6 +86,11 @@ func ExtractJobName(jobKey string) string {
 	return strings.TrimPrefix(jobKey, JOB_SAVE_DIR)
 }
 
+//从键名中提取workerIP
+func ExtractWorkerIp(regKey string) (string) {
+	return strings.TrimPrefix(regKey, WORKER_REGISTER_DIR)
+}
+
 //构造一个任务变化事件
 func BuildJobEvent(eventType int, job *Job) (jobevent *JobEvent) {
 	return &JobEvent{

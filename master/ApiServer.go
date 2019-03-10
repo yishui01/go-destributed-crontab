@@ -19,12 +19,13 @@ type ApiServer struct {
 func InitApiServer() (err error) {
 	//配置路由
 	mux := http.NewServeMux()
-	mux.HandleFunc("/job/save", handleJobSave)
-	mux.HandleFunc("/job/delete", handleJobDel)
-	mux.HandleFunc("/job/list", handleJobList)
-	mux.HandleFunc("/job/kill", handleJobKill)
+	mux.HandleFunc("/job/save", handleJobSave)  //保存任务
+	mux.HandleFunc("/job/delete", handleJobDel) //删除任务
+	mux.HandleFunc("/job/list", handleJobList)  //任务列表
+	mux.HandleFunc("/job/kill", handleJobKill)  //强杀任务
 
-	mux.HandleFunc("/job/log", handleJobLog)
+	mux.HandleFunc("/job/log", handleJobLog)       //任务执行日志
+	mux.HandleFunc("/job/workers", handleWorkList) //在线worker列表
 
 	//静态文件
 	webroot := http.Dir(G_config.WebRoot)     //静态文件根目录
@@ -54,6 +55,21 @@ func InitApiServer() (err error) {
 
 	return
 
+}
+
+func handleWorkList(response http.ResponseWriter, request *http.Request) {
+	worker_list, err := G_wrokerMgr.List()
+	if err != nil {
+		fmt.Println("获取worker列表失败", err)
+	}
+
+	bytes, err := common.BuildResponse(0, "sucess", worker_list)
+	if err == nil {
+		response.Write(bytes)
+	} else {
+		fmt.Println(err)
+	}
+	return
 }
 
 //查询任务日志接口

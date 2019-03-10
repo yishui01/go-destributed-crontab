@@ -38,6 +38,12 @@ func main() {
 		fmt.Println(err)
 	}
 
+	err = master.InitWorkerMgr()
+	if err != nil {
+		fmt.Println("获取worker列表失败")
+		return
+	}
+
 	//初始化日志协程
 	err = master.InitLogDb()
 	if err != nil {
